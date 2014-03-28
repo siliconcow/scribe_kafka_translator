@@ -65,7 +65,7 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Printf("Quiet! I'm trying to listen to port %d and send to kafka at %s", port, kafka_hostname)
+	fmt.Printf("Quiet! I'm trying to listen to port %d and sending to kafka at %s", port, kafka_hostname)
   ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port) )
 	if err != nil {
 		log.Println(err)
