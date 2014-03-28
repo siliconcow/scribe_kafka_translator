@@ -22,7 +22,7 @@ type scribeServiceImplementation int
 func (s *scribeServiceImplementation) Log(messages []*scribe.LogEntry) (scribe.ResultCode, error) {
   client, err := sarama.NewClient("client_id", []string{kafka_hostname}, &sarama.ClientConfig{MetadataRetries: 1, WaitForElection: 250 * time.Millisecond})
   if err != nil {
-      panic(err)
+      log.Println(err)
   } else {
       log.Println("> sending batch upstream...")
   }
@@ -30,7 +30,7 @@ func (s *scribeServiceImplementation) Log(messages []*scribe.LogEntry) (scribe.R
   
   producer, err := sarama.NewProducer(client, &sarama.ProducerConfig{RequiredAcks: sarama.WaitForLocal})
   if err != nil {
-      panic(err)
+      log.Println(err)
   }
   defer producer.Close()
 
@@ -42,7 +42,7 @@ func (s *scribeServiceImplementation) Log(messages []*scribe.LogEntry) (scribe.R
     err = producer.SendMessage(m.Category, nil, sarama.StringEncoder(m.Message))
     if err != nil {
         errors++
-        log.Fatal(err)
+        log.Println(err)
     } else {
         success++
     }
@@ -65,10 +65,10 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Printf("Quiet! I'm trying to lisen on port %d to forward scribe messages to kafka host at %s", port, kafka_hostname)
+	fmt.Printf("Quiet! I'm trying to listen to port %d and send to kafka at %s", port, kafka_hostname)
   ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port) )
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 	for {
 		conn, err := ln.Accept()
