@@ -5,7 +5,9 @@ import (
 	"net"
 	"net/rpc"
 	"flag"
-	kafka "github.com/jdamick/kafka"
+  "time"
+  "log"
+  "github.com/Shopify/sarama"
 	"github.com/samuel/go-thrift/examples/scribe"
 	"github.com/samuel/go-thrift/thrift"
 )
@@ -13,21 +15,45 @@ import (
 var kafka_hostname string
 var partition int
 var port int
-
 // implementation
 
 type scribeServiceImplementation int
 
 func (s *scribeServiceImplementation) Log(messages []*scribe.LogEntry) (scribe.ResultCode, error) {
-        broker := kafka.NewBrokerPublisher(kafka_hostname, messages[0].Category, partition) //standard scribe splits category by thread/connection
-	timing := kafka.StartTiming("Forwarding messages...")
+  client, err := sarama.NewClient("client_id", []string{kafka_hostname}, &sarama.ClientConfig{MetadataRetries: 1, WaitForElection: 250 * time.Millisecond})
+  if err != nil {
+      panic(err)
+  } else {
+      log.Println("> sending batch upstream...")
+  }
+  defer client.Close()
+  
+  producer, err := sarama.NewProducer(client, &sarama.ProducerConfig{RequiredAcks: sarama.WaitForLocal})
+  if err != nil {
+      panic(err)
+  }
+  defer producer.Close()
+
+  success :=0
+  errors :=0
+	startTime := time.Now()
 	for _, m := range messages {
-		fmt.Printf("MSG: %+v\n", m)
-		bytes := []byte(m.Message)
-		broker.Publish(kafka.NewMessage(bytes))
+		log.Println("Message Received: %+v\n", m)
+    err = producer.SendMessage(m.Category, nil, sarama.StringEncoder(m.Message))
+    if err != nil {
+        errors++
+        log.Fatal(err)
+    } else {
+        success++
+    }
 	}
-	timing.Print()
-	return scribe.ResultCodeOk, nil
+   endTime := time.Now()
+   log.Println("Sent %d messages in %d ms with %d errors", success, (endTime.Sub(startTime)), errors)
+  if errors > 0 {
+	  return scribe.ResultCodeTryLater, nil
+  }else{
+	  return scribe.ResultCodeOk, nil
+  }
 }
 
 func main() {
@@ -39,8 +65,8 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Printf("Quiet! I'm lisening on port %d and sending to kafka host at %s", port, kafka_hostname)
-	ln, err := net.Listen("tcp", ":1463" )
+	fmt.Printf("Quiet! I'm trying to lisen on port %d to forward scribe messages to kafka host at %s", port, kafka_hostname)
+  ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port) )
 	if err != nil {
 		panic(err)
 	}
