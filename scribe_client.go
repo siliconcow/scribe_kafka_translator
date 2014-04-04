@@ -14,9 +14,11 @@ import (
 var port int
 var category string
 var host string
+var count int
 
 func main() {
 	flag.IntVar(&port, "p", 1463, "Scribe Port")
+	flag.IntVar(&count, "c", 100, "Test messages")
 	flag.StringVar(&host, "h", "localhost", "Scribe Host")
 	flag.StringVar(&category, "c", "category", "Scribe Category")
   flag.Parse()
@@ -32,10 +34,15 @@ func main() {
 
 	client := thrift.NewClient(thrift.NewFramedReadWriteCloser(conn, 0), thrift.NewBinaryProtocol(true, false), false)
 	scr := scribe.ScribeClient{Client: client}
-	res, err := scr.Log([]*scribe.LogEntry{{category,string(message)}})
+  arr := make([]*scribe.LogEntry,count)
+  for i :=0; i < count; i++{
+   arr[i]=&scribe.LogEntry{category,string(message)}
+  }
+	res, err := scr.Log(arr)
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Printf("Response: %+v\n", res)
 }
+
